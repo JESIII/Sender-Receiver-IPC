@@ -27,16 +27,17 @@ string recvFileName()
 	 * used for holding the message received from the sender.
 	 */
 	struct fileNameMsg holdMsg;
-	holdMsg.mtype = RECV_DONE_TYPE;
-	strncpy(holdMsg.fileName,"keyfile.txt",11); //for testing
+	//holdMsg.mtype = RECV_DONE_TYPE;
+	//strncpy(holdMsg.fileName,"keyfile.txt",11); //for testing
 
   /* TODO: Receive the file name using msgrcv() */
 
-	if (msgrcv(msqid, &holdMsg, sizeof(struct fileNameMsg) - sizeof(long), SENDER_DATA_TYPE, 0) == -1 ) {
+	if (msgrcv(msqid, &holdMsg, sizeof(struct fileNameMsg) - sizeof(long), FILE_NAME_TRANSFER_TYPE, 0) == -1 ) {
 		perror("(msgrcv) Error receiving message from receiver");
 		exit(1);
-		
+
 	}
+	cout << "line 40: file name - " << holdMsg.fileName << endl;
 	/* TODO: return the received file name */
 	fileName = holdMsg.fileName;
 	return fileName;
@@ -60,22 +61,29 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
 	   on the system has a unique id, but different objects may have the same key.
 	*/
 	key_t key = ftok("keyfile.txt", 'a');
+
 	/* TODO: Allocate a shared memory segment. The size of the segment must be SHARED_MEMORY_CHUNK_SIZE. */
 	/* TODO: Attach to the shared memory */
-	if (shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, 0644 | IPC_CREAT) == -1) { //get id and create queue if it does not exist
-		cout << "Error in shmget, cannot obtain shared memory segment id";
-		exit(1);
-	} 
-	
-	/* TODO: Create a message queue */
-
-	if (msqid = msgget(key, 0666 | IPC_CREAT) == -1) {  //connects to message queue and generates id
-		cout << "Error in msgget, cannot attatch to message queue";
+	shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, 0644 | IPC_CREAT);
+	if (shmid == -1) { //get id and create queue if it does not exist
+		perror("<Line 68> Error in shmget, cannot obtain shared memory segment id");
 		exit(1);
 	}
-cout<<"msqid: " << msqid ;	
+
 	/* TODO: Store the IDs and the pointer to the shared memory region in the corresponding parameters */
 	sharedMemPtr = shmat(shmid, sharedMemPtr, 0);
+
+	/* TODO: Create a message queue */
+	msqid = msgget(key, 0666 | IPC_CREAT);
+	if (msqid == -1) {  //connects to message queue and generates id
+		perror("<Line 78> Error in msgget, cannot attatch to message queue");
+		exit(1);
+	}
+	printf("<Line 81> Debug - msqid(%d)\n", msqid);
+
+	/* Store the IDs and the pointer to the shared memory region in the corresponding parameters */
+
+
 }
 /**
  * The main loop
@@ -105,70 +113,80 @@ unsigned long mainLoop(const char* fileName)
 		perror("fopen");
 		exit(-1);
 	}
+
+	// Create messages to send and recieve!
+	message sndMsg;
+	message rcvMsg;
+
 	/* Keep receiving until the sender sets the size to 0, indicating that
- 	 * there is no more data to send.
- 	 */
+	* there is no more data to send.
+	*/
 	while(msgSize != 0)
 	{
-
 		/* TODO: Receive the message and get the value of the size field. The message will be of
-		 * of type SENDER_DATA_TYPE. That is, a message that is an instance of the message struct with
-		 * mtype field set to SENDER_DATA_TYPE (the macro SENDER_DATA_TYPE is defined in
-		 * msg.h).  If the size field of the message is not 0, then we copy that many bytes from
-		 * the shared memory segment to the file. Otherwise, if 0, then we close the file
-		 * and exit.
-		 *
-		 * NOTE: the received file will always be saved into the file called
-		 * <ORIGINAL FILENAME__recv>. For example, if the name of the original
-		 * file is song.mp3, the name of the received file is going to be song.mp3__recv.
-		 */
-	// sizeof(struct message) - sizeof(long)
-		struct message recmsg;
-			if(msgrcv(msqid, &recmsg,200, SENDER_DATA_TYPE, IPC_NOWAIT) == -1)
-			perror("Error, message cant be recieved");
+		* of type SENDER_DATA_TYPE. That is, a message that is an instance of the message struct with
+		* mtype field set to SENDER_DATA_TYPE (the macro SENDER_DATA_TYPE is defined in
+		* msg.h).  If the size field of the message is not 0, then we copy that many bytes from
+		* the shared memory segment to the file. Otherwise, if 0, then we close the file
+		* and exit.
+		*
+		* NOTE: the received file will always be saved into the file called
+		* <ORIGINAL FILENAME__recv>. For example, if the name of the original
+		* file is song.mp3, the name of the received file is going to be song.mp3__recv.
+		*/
+		// sizeof(struct message) - sizeof(long)
+		// Important: Add +1 to keep the null terminator \0 at the end!
+		printf("<Line 138> Reading in message...\n");
+		printf("<Line 139> Hanging Here . . . . ");
+		if(msgrcv(msqid, &rcvMsg, sizeof(rcvMsg) - sizeof(long), SENDER_DATA_TYPE, 0) == -1)
+		{
+			perror("msgrcv");
 			fclose(fp);
 			exit(1);
 		}
-		//msgSize = recmsg.size;
-		msgSize = 1;
 
-		// If the sender is not telling us that we are done, then get to work 
+		msgSize = rcvMsg.size;
+		numBytesRecv = msgSize;
+
+		printf("<Line 150> DEBUG: Message Size %d Message Type %ld\n", rcvMsg.size, rcvMsg.mtype);
+		printf("<Line 151> DEBUG: Message Struct Size %lu\n", sizeof(rcvMsg) - sizeof(long));
 
 		/* If the sender is not telling us that we are done, then get to work */
-
 		if(msgSize != 0)
 		{
-			/* TODO: count the number of bytes received */
-
+			printf("<Line 156> Writing to file\n");
+			//This below fails!
 			/* Save the shared memory to file */
-			if(fwrite(sharedMemPtr, sizeof(char), msgSize, fp) < 0)
+			if(fwrite(sharedMemPtr, sizeof(char), msgSize, fp) == 0)
 			{
-				perror("fwrite");
+				perror("<Line 161> Error, message cant be sent");
 			}
-			
-			/* TODO: Tell the sender that we are ready for the next set of bytes.
- 			 * I.e., send a message of type RECV_DONE_TYPE. That is, a message
-			 * of type ackMessage with mtype field set to RECV_DONE_TYPE.
- 			 */
-			  struct ackMessage ackmsg;
-			  ackmsg.mtype = RECV_DONE_TYPE;
+			printf("<Line 164> Wrote to file!\n");
 
-			  if(msgsnd(msqid, &ackmsg, numBytesRecv, 0) < 0 ) {
-				  perror("Error, message cant be sent");
-				  exit(1);
-			  }
+			/* TODO: Tell the sender that we are ready for the next file chunk.
+			* I.e. send a message of type RECV_DONE_TYPE (the value of size field
+			* does not matter in this case).
+			*/
+			sndMsg.mtype = RECV_DONE_TYPE;
+			sndMsg.size = 0;
 
+			if(msgsnd(msqid, &sndMsg, 0, 0) == -1)
+			{
+				perror("msgsnd");
+			}
 		}
-		/* We are done */
 		else
 		{
+			printf("<Line 180> Closing file...\n");
+
 			/* Close the file */
 			fclose(fp);
 		}
-		return numBytesRecv;
 	}
+	return numBytesRecv;
+}
 
-	
+
 
 /**
  * Performs cleanup functions
