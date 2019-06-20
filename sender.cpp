@@ -32,14 +32,14 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
 	   like the file name and the id is like the file object.  Every System V object
 	   on the system has a unique id, but different objects may have the same key.
 	*/
-	key_t key = ftok("C:/Users/tinco/Documents/GitHub/Sender-Receiver-IPC/keyfile.txt", 'a');
-	msqid = msgget(key, 0666 | IPC_CREAT);
+	key_t key = ftok("keyfile.txt", 'a');
 
 	/* TODO: Get the id of the shared memory segment. The size of the segment must be SHARED_MEMORY_CHUNK_SIZE */
 	/* TODO: Attach to the shared memory */
 	/* TODO: Attach to the message queue */
 	/* Store the IDs and the pointer to the shared memory region in the corresponding function parameters */
-	shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, 0644 | IPC_CREAT);
+	msqid = msgget(key, 0666 | IPC_CREAT); //connects to message queue and generates id
+	shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, 0644 | IPC_CREAT); //get id and create queue if it does not exist
 	sharedMemPtr = shmat(shmid, sharedMemPtr, 0);
 }
 
@@ -65,6 +65,7 @@ unsigned long sendFile(const char* fileName)
 
 	/* A buffer to store message we will send to the receiver. */
 	message sndMsg;
+	sndMsg.mtype = SENDER_DATA_TYPE;
 
 	/* A buffer to store message received from the receiver. */
 	ackMessage rcvMsg;
@@ -82,6 +83,9 @@ unsigned long sendFile(const char* fileName)
 		exit(-1);
 	}
 
+	//compute file size
+	long begin, end;
+
 	/* Read the whole file */
 	while(!feof(fp))
 	{
@@ -97,11 +101,15 @@ unsigned long sendFile(const char* fileName)
 		}
 
 		/* TODO: count the number of bytes sent. */
+		//documentation source: http://www.cplusplus.com/reference/cstdio/fread/
+		fseek(fp, 0, SEEK_END);
+		numBytesSent = ftell(fp);
+		rewind(fp);
 
 		/* TODO: Send a message to the receiver telling him that the data is ready
  		 * to be read (message of type SENDER_DATA_TYPE).
  		 */
-
+	
 		/* TODO: Wait until the receiver sends us a message of type RECV_DONE_TYPE telling us
  		 * that he finished saving a chunk of memory.
  		 */
@@ -131,18 +139,22 @@ void sendFileName(const char* fileName)
 
 	/* TODO: Make sure the file name does not exceed
 	 * the maximum buffer size in the fileNameMsg
-	 * struct. If exceeds, then terminate with an error.
-	 */
+	 * struct. If exceeds, then terminate with an error. */
+
+	if (fileNameSize > MAX_FILE_NAME_SIZE) {
+		cout << "File Name is too large\n";
+		exit(1);
+	}
 
 	/* TODO: Create an instance of the struct representing the message
 	 * containing the name of the file.
 	 */
-
 	/* TODO: Set the message type FILE_NAME_TRANSFER_TYPE */
-
+	 struct fileNameMsg sendMessageName = { FILE_NAME_TRANSFER_TYPE} //temorary mtype and size for testing
 	/* TODO: Set the file name in the message */
-
+	strncpy(sendMessageName.fileName, fileName, sizeof(sendMessageName.fileName) - 1);
 	/* TODO: Send the message using msgsnd */
+	msgsnd(msqid, &sendMessageName, sizeof(struct fileNameMsg), 0);
 }
 
 
