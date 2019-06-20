@@ -58,16 +58,17 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
 	   like the file name and the id is like the file object.  Every System V object
 	   on the system has a unique id, but different objects may have the same key.
 	*/
-
+	key_t key = ftok("keyfile.txt", 'a');
 
 	/* TODO: Allocate a shared memory segment. The size of the segment must be SHARED_MEMORY_CHUNK_SIZE. */
-
 	/* TODO: Attach to the shared memory */
+	shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, 0644 | IPC_CREAT); //get id and create mem segment if it does not exist
 
 	/* TODO: Create a message queue */
+	msqid = msgget(key, 0666 | IPC_CREAT); //create message queue and generates id
 
 	/* TODO: Store the IDs and the pointer to the shared memory region in the corresponding parameters */
-
+	sharedMemPtr = shmat(shmid, sharedMemPtr, 0);
 }
 
 
@@ -88,6 +89,7 @@ unsigned long mainLoop(const char* fileName)
 	string recvFileNameStr = fileName;
 
 	/* TODO: append __recv to the end of file name */
+	recvFileName += "__recv";
 
 	/* Open the file for writing */
 	FILE* fp = fopen(recvFileNameStr.c_str(), "w");
