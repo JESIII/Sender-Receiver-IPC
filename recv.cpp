@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string>
+#include<cstring>
 #include "msg.h"    /* For the message struct */
 
 using namespace std;
@@ -27,10 +28,14 @@ string recvFileName()
 	 */
 	struct fileNameMsg holdMsg;
 	holdMsg.mtype = RECV_DONE_TYPE;
+	strncpy(holdMsg.fileName,"keyfile.txt",11); //for testing
+
   /* TODO: Receive the file name using msgrcv() */
-	if (msgrcv(msqid, &holdMsg, sizeof(struct fileNameMsg), RECV_DONE_TYPE, IPC_NOWAIT) == -1 ) {
+
+	if (msgrcv(msqid, &holdMsg, sizeof(struct fileNameMsg) - sizeof(long), SENDER_DATA_TYPE, 0) == -1 ) {
 		perror("(msgrcv) Error receiving message from receiver");
 		exit(1);
+		
 	}
 	/* TODO: return the received file name */
 	fileName = holdMsg.fileName;
@@ -61,14 +66,14 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
 		cout << "Error in shmget, cannot obtain shared memory segment id";
 		exit(1);
 	} 
-
+	
 	/* TODO: Create a message queue */
 
 	if (msqid = msgget(key, 0666 | IPC_CREAT) == -1) {  //connects to message queue and generates id
 		cout << "Error in msgget, cannot attatch to message queue";
 		exit(1);
 	}
-
+cout<<"msqid: " << msqid ;	
 	/* TODO: Store the IDs and the pointer to the shared memory region in the corresponding parameters */
 	sharedMemPtr = shmat(shmid, sharedMemPtr, 0);
 }
@@ -117,9 +122,9 @@ unsigned long mainLoop(const char* fileName)
 		 * <ORIGINAL FILENAME__recv>. For example, if the name of the original
 		 * file is song.mp3, the name of the received file is going to be song.mp3__recv.
 		 */
-	
+	// sizeof(struct message) - sizeof(long)
 		struct message recmsg;
-			if(msgrcv(msqid, &recmsg, sizeof(struct message) - sizeof(long), SENDER_DATA_TYPE, IPC_NOWAIT) == -1)
+			if(msgrcv(msqid, &recmsg,200, SENDER_DATA_TYPE, IPC_NOWAIT) == -1)
 			perror("Error, message cant be recieved");
 			fclose(fp);
 			exit(1);
