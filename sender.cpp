@@ -99,20 +99,23 @@ unsigned long sendFile(const char* fileName)
 			perror("fread");
 			exit(-1);
 		}
-
 		/* TODO: count the number of bytes sent. */
 		//documentation source: http://www.cplusplus.com/reference/cstdio/fread/
 		fseek(fp, 0, SEEK_END);
 		numBytesSent = ftell(fp);
 		rewind(fp);
-
 		/* TODO: Send a message to the receiver telling him that the data is ready
  		 * to be read (message of type SENDER_DATA_TYPE).
  		 */
-	
+		 struct message msg1;
+		 msg1.mtype = SENDER_DATA_TYPE;
+		 msgsnd(msqid, &msg1, sizeof(msg1), 0);
 		/* TODO: Wait until the receiver sends us a message of type RECV_DONE_TYPE telling us
  		 * that he finished saving a chunk of memory.
  		 */
+		while(){
+
+		}
 	}
 
 

@@ -8,17 +8,12 @@
 #include "msg.h"    /* For the message struct */
 
 using namespace std;
-
 /* The size of the shared memory segment */
 #define SHARED_MEMORY_CHUNK_SIZE 1000
-
 /* The ids for the shared memory segment and the message queue */
 int shmid, msqid;
-
 /* The pointer to the shared memory */
 void *sharedMemPtr = NULL;
-
-
 /**
  * The function for receiving the name of the file
  * @return - the name of the file received from the sender
@@ -27,17 +22,15 @@ string recvFileName()
 {
 	/* The file name received from the sender */
 	string fileName;
-
-
 	/* TODO: declare an instance of the fileNameMsg struct to be
 	 * used for holding the message received from the sender.
 	 */
-	 struct fileNameMsg hold;
-        /* TODO: Receive the file name using msgrcv() */
-
+	struct fileNameMsg hold;
+  /* TODO: Receive the file name using msgrcv() */
+	msgrcv(msqid, &hold, MAX_FILE_NAME_SIZE, 0,0);
 	/* TODO: return the received file name */
-
-        return fileName;
+	fileName = hold.fileName;
+	return fileName;
 }
  /**
  * Sets up the shared memory segment and message queue
@@ -47,7 +40,6 @@ string recvFileName()
  */
 void init(int& shmid, int& msqid, void*& sharedMemPtr)
 {
-
 	/* TODO:
         1. Create a file called keyfile.txt containing string "Hello world" (you may do
  	    so manually or from the code).
@@ -59,19 +51,14 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
 	   on the system has a unique id, but different objects may have the same key.
 	*/
 	key_t key = ftok("keyfile.txt", 'a');
-
 	/* TODO: Allocate a shared memory segment. The size of the segment must be SHARED_MEMORY_CHUNK_SIZE. */
 	/* TODO: Attach to the shared memory */
 	shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, 0644 | IPC_CREAT); //get id and create mem segment if it does not exist
-
 	/* TODO: Create a message queue */
 	msqid = msgget(key, 0666 | IPC_CREAT); //create message queue and generates id
-
 	/* TODO: Store the IDs and the pointer to the shared memory region in the corresponding parameters */
 	sharedMemPtr = shmat(shmid, sharedMemPtr, 0);
 }
-
-
 /**
  * The main loop
  * @param fileName - the name of the file received from the sender.
@@ -100,8 +87,6 @@ unsigned long mainLoop(const char* fileName)
 		perror("fopen");
 		exit(-1);
 	}
-
-
 	/* Keep receiving until the sender sets the size to 0, indicating that
  	 * there is no more data to send.
  	 */
@@ -146,9 +131,6 @@ unsigned long mainLoop(const char* fileName)
 
 	return numBytesRecv;
 }
-
-
-
 /**
  * Performs cleanup functions
  * @param sharedMemPtr - the pointer to the shared memory
@@ -174,7 +156,6 @@ void ctrlCSignal(int signal)
 	/* Free system V resources */
 	cleanUp(shmid, msqid, sharedMemPtr);
 }
-
 int main(int argc, char** argv)
 {
 	/* TODO: Install a signal handler (see signaldemo.cpp sample file).
