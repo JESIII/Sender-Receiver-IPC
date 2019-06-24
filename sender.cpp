@@ -145,7 +145,7 @@ void sendFileName(const char* fileName)
 	 * struct. If exceeds, then terminate with an error. */
 
 	if (fileNameSize > MAX_FILE_NAME_SIZE) {
-		cout << "File Name is too large\n";
+		//cout << "File Name is too large\n";
 		exit(1);
 	}
 
