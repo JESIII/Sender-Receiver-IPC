@@ -67,8 +67,6 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
 	// Get the shared memory identifier associated with key
 	shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, 0644 | IPC_CREAT); //get id and create mem segment if it does not exist
 
-	/* TODO: Create a message queue */
-
 	// Get the message queue identifier associated with the argument key
 	msqid = msgget(key, 0666 | IPC_CREAT); //create message queue and generates id
 
@@ -108,14 +106,13 @@ unsigned long mainLoop(const char* fileName)
 		exit(-1);
 	}
 
-
 	/* Keep receiving until the sender sets the size to 0, indicating that
  	 * there is no more data to send.
  	 */
 	while(msgSize != 0)
 	{
 
-		/* TODO: Receive the message and get the value of the size field. The message will be of
+		/* Receive the message and get the value of the size field. The message will be of
 		 * of type SENDER_DATA_TYPE. That is, a message that is an instance of the message struct with
 		 * mtype field set to SENDER_DATA_TYPE (the macro SENDER_DATA_TYPE is defined in
 		 * msg.h).  If the size field of the message is not 0, then we copy that many bytes from
@@ -127,7 +124,7 @@ unsigned long mainLoop(const char* fileName)
 		 * file is song.mp3, the name of the received file is going to be song.mp3__recv.
 		 */
 
-		 // Declare instance of message and ackMessage
+		// Send Message and Receive Message variables
 		ackMessage recvMsg;
 		message sendMsg;
 
@@ -149,13 +146,9 @@ unsigned long mainLoop(const char* fileName)
 				perror("fwrite");
 			}
 
-			/* TODO: Tell the sender that we are ready for the next set of bytes.
- 			 * I.e., send a message of type RECV_DONE_TYPE. That is, a message
-			 * of type ackMessage with mtype field set to RECV_DONE_TYPE.
- 			 */
+			// Set Receive Message tyep to RECV_DONE_TYPE and are ready for next set
 			 recvMsg.mtype = RECV_DONE_TYPE;
 		}
-		/* We are done */
 		else
 		{
 			/* Close the file */
@@ -163,6 +156,7 @@ unsigned long mainLoop(const char* fileName)
 		}
 	}
 
+	// Return number of bytes received
 	return numBytesRecv;
 }
 
