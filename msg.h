@@ -1,3 +1,4 @@
+#include<iostream>
 #define MAX_MSG_PAYLOAD 100
 
 /* The information type */
