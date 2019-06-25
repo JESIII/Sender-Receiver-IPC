@@ -76,7 +76,7 @@ unsigned long mainLoop(const char* fileName)
 	string recvFileNameStr = fileName;
 
 	/* TODO: append __recv to the end of file name */
-	recvFileNameStr = recvFileNameStr + "__recv";
+	recvFileName += "__recv";
 
 	/* Open the file for writing */
 	FILE* fp = fopen(recvFileNameStr.c_str(), "w");
@@ -105,8 +105,6 @@ unsigned long mainLoop(const char* fileName)
 		 * file is song.mp3, the name of the received file is going to be song.mp3__recv.
 		 */
 
-	`	msgrcv(msqid,&msg1,numBytesRecv,SENDER_DATA_TYPE,0);  //not sure about sender data type paramater
-		
 		/* If the sender is not telling us that we are done, then get to work */
 		if(msgSize != 0)
 		{
@@ -117,14 +115,11 @@ unsigned long mainLoop(const char* fileName)
 			{
 				perror("fwrite");
 			}
-			
+
 			/* TODO: Tell the sender that we are ready for the next set of bytes.
  			 * I.e., send a message of type RECV_DONE_TYPE. That is, a message
 			 * of type ackMessage with mtype field set to RECV_DONE_TYPE.
  			 */
-			  struct ackMessage ackmsg;
-			  ackmsg.mtype = RECV_DONE_TYPE;
-			msgsnd(msqid, &ackmsg, numBytesRecv, 0);
 		}
 		/* We are done */
 		else
