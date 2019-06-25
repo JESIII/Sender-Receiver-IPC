@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <string.h>
 #include "msg.h"    /* For the message struct */
-
+using namespace std;
 /* The size of the shared memory segment */
 #define SHARED_MEMORY_CHUNK_SIZE 1000
 
@@ -38,9 +38,20 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
 	/* TODO: Attach to the shared memory */
 	/* TODO: Attach to the message queue */
 	/* Store the IDs and the pointer to the shared memory region in the corresponding function parameters */
-	msqid = msgget(key, 0666 | IPC_CREAT); //connects to message queue and generates id
-	shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, 0644 | IPC_CREAT); //get id and create queue if it does not exist
+	if (shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, 0644 | IPC_CREAT) == -1) { //get id and create queue if it does not exist
+		cout << "Error in shmget, cannot obtain shared memory segment id";
+		exit(1);
+	}
+
 	sharedMemPtr = shmat(shmid, sharedMemPtr, 0);
+
+	if (msqid = msgget(key, 0666 | IPC_CREAT) == -1) {  //connects to message queue and generates id
+		cout << "Error in msgget, cannot attatch to message queue";
+		exit(1);
+	}
+
+
+
 }
 
 /**
@@ -64,20 +75,20 @@ unsigned long sendFile(const char* fileName)
 {
 
 	/* A buffer to store message we will send to the receiver. */
-	message sndMsg;
+	struct message sndMsg;
 	sndMsg.mtype = SENDER_DATA_TYPE;
 
 	/* A buffer to store message received from the receiver. */
-	ackMessage rcvMsg;
+	struct ackMessage rcvMsg;
 
 	/* The number of bytes sent */
 	unsigned long numBytesSent = 0;
 
 	/* Open the file */
-	FILE* fp =  fopen(fileName, "r");
+	FILE* fp = fopen(fileName, "r");
 
 	/* Was the file open? */
-	if(!fp)
+	if (!fp)
 	{
 		perror("fopen");
 		exit(-1);
@@ -86,44 +97,56 @@ unsigned long sendFile(const char* fileName)
 	//compute file size
 	long begin, end;
 
+	// instatntiate message type with SENDER_DATA_TYPE
+	//struct message msg1;
+//	msg1.mtype = SENDER_DATA_TYPE;
+
+	fseek(fp, 0, SEEK_END);
+	numBytesSent = ftell(fp) - 1;
+	rewind(fp);
 	/* Read the whole file */
-	while(!feof(fp))
+	while (!feof(fp))
 	{
 		/* Read at most SHARED_MEMORY_CHUNK_SIZE from the file and
- 		 * store them in shared memory.  fread() will return how many bytes it has
+		 * store them in shared memory.  fread() will return how many bytes it has
 		 * actually read. This is important; the last chunk read may be less than
 		 * SHARED_MEMORY_CHUNK_SIZE.
- 		 */
-		if((sndMsg.size = fread(sharedMemPtr, sizeof(char), SHARED_MEMORY_CHUNK_SIZE, fp)) < 0)
+		 */
+		if ((sndMsg.size = fread(sharedMemPtr, sizeof(char), SHARED_MEMORY_CHUNK_SIZE, fp)) < 0)
 		{
 			perror("fread");
 			exit(-1);
 		}
 		/* TODO: count the number of bytes sent. */
 		//documentation source: http://www.cplusplus.com/reference/cstdio/fread/
-		fseek(fp, 0, SEEK_END);
-		numBytesSent = ftell(fp);
-		rewind(fp);
-		/* TODO: Send a message to the receiver telling him that the data is ready
- 		 * to be read (message of type SENDER_DATA_TYPE).
- 		 */
-		 struct message msg1;
-		 msg1.mtype = SENDER_DATA_TYPE;
-		 msgsnd(msqid, &msg1, sizeof(msg1), 0);
-		/* TODO: Wait until the receiver sends us a message of type RECV_DONE_TYPE telling us
- 		 * that he finished saving a chunk of memory.
- 		 */
-		while(){
 
+		/* TODO: Send a message to the receiver telling him that the data is ready
+		 * to be read (message of type SENDER_DATA_TYPE).
+		 */
+
+		if (msgsnd(msqid, &sndMsg, sizeof(struct message) - sizeof(long), 0) == -1) {
+			perror("Error, message could not send properly to reciever");
+		}
+		/* TODO: Wait until the receiver sends us a message of type RECV_DONE_TYPE telling us
+		 * that he finished saving a chunk of memory.
+		 */
+		if (msgrcv(msqid, &sndMsg, sizeof(struct message) - sizeof(long), RECV_DONE_TYPE, 0)== -1 ) {
+			perror("Error, could not properly recieve message from reciever process");
+			exit(1);
 		}
 	}
 
 
 	/** TODO: once we are out of the above loop, we have finished sending the file.
- 	  * Lets tell the receiver that we have nothing more to send. We will do this by
- 	  * sending a message of type SENDER_DATA_TYPE with size field set to 0.
+	  * Lets tell the receiver that we have nothing more to send. We will do this by
+	  * sending a message of type SENDER_DATA_TYPE with size field set to 0.
 	  */
-
+	sndMsg.size = numBytesSent;
+	cout << "num: " << numBytesSent;
+	if(msgsnd(msqid, &sndMsg, sizeof(struct message) - sizeof(long), 0) == -1){
+		perror("Error, could not send message indicating sender is done sending");
+		exit(1);
+}
 
 	/* Close the file */
 	fclose(fp);
@@ -135,10 +158,10 @@ unsigned long sendFile(const char* fileName)
  * Used to send the name of the file to the receiver
  * @param fileName - the name of the file to send
  */
-void sendFileName(const char* fileName)
+void sendFileName(const char* thefileName)
 {
 	/* Get the length of the file name */
-	int fileNameSize = strlen(fileName);
+	int fileNameSize = strlen(thefileName);
 
 	/* TODO: Make sure the file name does not exceed
 	 * the maximum buffer size in the fileNameMsg
@@ -153,11 +176,17 @@ void sendFileName(const char* fileName)
 	 * containing the name of the file.
 	 */
 	/* TODO: Set the message type FILE_NAME_TRANSFER_TYPE */
-	 struct fileNameMsg sendMessageName = { FILE_NAME_TRANSFER_TYPE} //temorary mtype and size for testing
+
+
+	 struct fileNameMsg sendMessageName = { FILE_NAME_TRANSFER_TYPE}; //temorary mtype and size for testing
 	/* TODO: Set the file name in the message */
-	strncpy(sendMessageName.fileName, fileName, sizeof(sendMessageName.fileName) - 1);
+	//make size of message name dynamic
+	strncpy(sendMessageName.fileName, thefileName, 11);
 	/* TODO: Send the message using msgsnd */
-	msgsnd(msqid, &sendMessageName, sizeof(struct fileNameMsg), 0);
+	if (msgsnd(msqid, &sendMessageName, sizeof(struct fileNameMsg) - sizeof(long), 0) == -1) {
+		perror("Error, message could not send properly to reciever");
+	}
+
 }
 
 
