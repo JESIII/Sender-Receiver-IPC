@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string>
+#include<cstring>
 #include "msg.h"    /* For the message struct */
 
 using namespace std;
@@ -25,11 +26,19 @@ string recvFileName()
 	/* TODO: declare an instance of the fileNameMsg struct to be
 	 * used for holding the message received from the sender.
 	 */
-	struct fileNameMsg hold;
+	struct fileNameMsg holdMsg;
+	holdMsg.mtype = RECV_DONE_TYPE;
+	strncpy(holdMsg.fileName,"keyfile.txt",11); //for testing
+
   /* TODO: Receive the file name using msgrcv() */
-	msgrcv(msqid, &hold, MAX_FILE_NAME_SIZE, 0,0);
+
+	if (msgrcv(msqid, &holdMsg, sizeof(struct fileNameMsg) - sizeof(long), SENDER_DATA_TYPE, 0) == -1 ) {
+		perror("(msgrcv) Error receiving message from receiver");
+		exit(1);
+		
+	}
 	/* TODO: return the received file name */
-	fileName = hold.fileName;
+	fileName = holdMsg.fileName;
 	return fileName;
 }
  /**
@@ -53,9 +62,18 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
 	key_t key = ftok("keyfile.txt", 'a');
 	/* TODO: Allocate a shared memory segment. The size of the segment must be SHARED_MEMORY_CHUNK_SIZE. */
 	/* TODO: Attach to the shared memory */
-	shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, 0644 | IPC_CREAT); //get id and create mem segment if it does not exist
+	if (shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, 0644 | IPC_CREAT) == -1) { //get id and create queue if it does not exist
+		cout << "Error in shmget, cannot obtain shared memory segment id";
+		exit(1);
+	} 
+	
 	/* TODO: Create a message queue */
-	msqid = msgget(key, 0666 | IPC_CREAT); //create message queue and generates id
+
+	if (msqid = msgget(key, 0666 | IPC_CREAT) == -1) {  //connects to message queue and generates id
+		cout << "Error in msgget, cannot attatch to message queue";
+		exit(1);
+	}
+cout<<"msqid: " << msqid ;	
 	/* TODO: Store the IDs and the pointer to the shared memory region in the corresponding parameters */
 	sharedMemPtr = shmat(shmid, sharedMemPtr, 0);
 }
@@ -104,10 +122,20 @@ unsigned long mainLoop(const char* fileName)
 		 * <ORIGINAL FILENAME__recv>. For example, if the name of the original
 		 * file is song.mp3, the name of the received file is going to be song.mp3__recv.
 		 */
+	// sizeof(struct message) - sizeof(long)
+		struct message recmsg;
+			if(msgrcv(msqid, &recmsg,200, SENDER_DATA_TYPE, IPC_NOWAIT) == -1)
+			perror("Error, message cant be recieved");
+			fclose(fp);
+			exit(1);
+		}
+		//msgSize = recmsg.size;
+		msgSize = 1;
 
-	`	msgrcv(msqid,&msg1,numBytesRecv,SENDER_DATA_TYPE,0);  //not sure about sender data type paramater
-		
+		// If the sender is not telling us that we are done, then get to work 
+
 		/* If the sender is not telling us that we are done, then get to work */
+
 		if(msgSize != 0)
 		{
 			/* TODO: count the number of bytes received */
@@ -124,7 +152,12 @@ unsigned long mainLoop(const char* fileName)
  			 */
 			  struct ackMessage ackmsg;
 			  ackmsg.mtype = RECV_DONE_TYPE;
-			msgsnd(msqid, &ackmsg, numBytesRecv, 0);
+
+			  if(msgsnd(msqid, &ackmsg, numBytesRecv, 0) < 0 ) {
+				  perror("Error, message cant be sent");
+				  exit(1);
+			  }
+
 		}
 		/* We are done */
 		else
@@ -132,10 +165,11 @@ unsigned long mainLoop(const char* fileName)
 			/* Close the file */
 			fclose(fp);
 		}
+		return numBytesRecv;
 	}
 
-	return numBytesRecv;
-}
+	
+
 /**
  * Performs cleanup functions
  * @param sharedMemPtr - the pointer to the shared memory
