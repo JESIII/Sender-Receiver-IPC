@@ -32,26 +32,28 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
 	   like the file name and the id is like the file object.  Every System V object
 	   on the system has a unique id, but different objects may have the same key.
 	*/
+	printf("<Line 35> Initializing sender...\n");
 	key_t key = ftok("keyfile.txt", 'a');
 
 	/* TODO: Get the id of the shared memory segment. The size of the segment must be SHARED_MEMORY_CHUNK_SIZE */
 	/* TODO: Attach to the shared memory */
 	/* TODO: Attach to the message queue */
 	/* Store the IDs and the pointer to the shared memory region in the corresponding function parameters */
-	if (shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, 0644 | IPC_CREAT) == -1) { //get id and create queue if it does not exist
-		cout << "Error in shmget, cannot obtain shared memory segment id";
+	shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, 0644 | IPC_CREAT);
+	if (shmid == -1) { //get id and create queue if it does not exist
+		cout << "<Line 44> Error in shmget, cannot obtain shared memory segment id";
 		exit(1);
 	}
 
 	sharedMemPtr = shmat(shmid, sharedMemPtr, 0);
 
-	if (msqid = msgget(key, 0666 | IPC_CREAT) == -1) {  //connects to message queue and generates id
-		cout << "Error in msgget, cannot attatch to message queue";
+	msqid = msgget(key, 0666 | IPC_CREAT);
+	if (msqid == -1) {  //connects to message queue and generates id
+		perror("<Line 52> Error in msgget, cannot attatch to message queue");
 		exit(1);
 	}
 
-
-
+	printf("<Line 56> DEBUG: msqid(%d)\n", msqid);
 }
 
 /**
@@ -76,10 +78,10 @@ unsigned long sendFile(const char* fileName)
 
 	/* A buffer to store message we will send to the receiver. */
 	struct message sndMsg;
-	sndMsg.mtype = SENDER_DATA_TYPE;
-
 	/* A buffer to store message received from the receiver. */
-	struct ackMessage rcvMsg;
+	struct message rcvMsg;
+
+	sndMsg.mtype = SENDER_DATA_TYPE;
 
 	/* The number of bytes sent */
 	unsigned long numBytesSent = 0;
@@ -90,15 +92,9 @@ unsigned long sendFile(const char* fileName)
 	/* Was the file open? */
 	if (!fp)
 	{
-		perror("fopen");
+		perror("<Line 95> Error, File not open");
 		exit(-1);
 	}
-
-	//compute file size
-	long begin, end;
-
-	fseek(fp, 0, SEEK_END);
-	numBytesSent = ftell(fp) - 1;
 
 	/* Read the whole file */
 	while (!feof(fp))
@@ -108,26 +104,37 @@ unsigned long sendFile(const char* fileName)
 		 * actually read. This is important; the last chunk read may be less than
 		 * SHARED_MEMORY_CHUNK_SIZE.
 		 */
-		if ((sndMsg.size = fread(sharedMemPtr, sizeof(char), SHARED_MEMORY_CHUNK_SIZE, fp)) < 0)
+		sndMsg.size = fread(sharedMemPtr, sizeof(char), SHARED_MEMORY_CHUNK_SIZE, fp);
+
+		if(sndMsg.size < 0)
 		{
 			perror("fread");
 			exit(-1);
 		}
+
+		printf("<Line 115> Starting sender program...\n");
+		sndMsg.mtype = SENDER_DATA_TYPE;
+		printf("<Line 117> DEBUG: Size of Message(%d) Message Type(%ld)\n", sndMsg.size, sndMsg.mtype);
 		/* TODO: count the number of bytes sent. */
 		//documentation source: http://www.cplusplus.com/reference/cstdio/fread/
 
 		/* TODO: Send a message to the receiver telling him that the data is ready
 		 * to be read (message of type SENDER_DATA_TYPE).
 		 */
-
-		if (msgsnd(msqid, &sndMsg, sizeof(struct message) - sizeof(long), 0) == -1) {
-			perror("Error, message could not send properly to reciever");
+		if(msgsnd(msqid, &sndMsg, sizeof(struct message) - sizeof(long), 0) == -1)
+		{
+			perror("<Line 126> Error, message could not send properly to reciever");
 		}
+
+		numBytesSent = sndMsg.size;
+
 		/* TODO: Wait until the receiver sends us a message of type RECV_DONE_TYPE telling us
 		 * that he finished saving a chunk of memory.
 		 */
-		if (msgrcv(msqid, &sndMsg, sizeof(struct message) - sizeof(long), RECV_DONE_TYPE, 0)== -1 ) {
-			perror("Error, could not properly recieve message from reciever process");
+		 printf("<Line 315> Hanging Here ...\n");
+		if(msgrcv(msqid, &rcvMsg, 0, RECV_DONE_TYPE, 0) == -1 )
+		{
+			perror("<Line 137> Error, could not properly recieve message from reciever process");
 			exit(1);
 		}
 	}
@@ -138,15 +145,19 @@ unsigned long sendFile(const char* fileName)
 	  * sending a message of type SENDER_DATA_TYPE with size field set to 0.
 	  */
 
-	sndMsg.size = numBytesSent;
-	cout << "num: " << numBytesSent;
+	sndMsg.size = 0;
+	sndMsg.mtype = SENDER_DATA_TYPE;
+
+	printf("<Line 151> DEBUG: Message Size %d Message Type %ld\n", rcvMsg.size, rcvMsg.mtype);
+
 	if(msgsnd(msqid, &sndMsg, sizeof(struct message) - sizeof(long), 0) == -1){
-		perror("Error, could not send message indicating sender is done sending");
+		perror("<Line 154>Error, could not send message indicating sender is done sending");
 		exit(1);
-}
+	}
 
 	/* Close the file */
 	fclose(fp);
+	printf("<Line 160> Closed file.\n");
 
 	return numBytesSent;
 }
@@ -161,20 +172,20 @@ void sendFileName(const char* thefileName)
 	int fileNameSize = strlen(thefileName);
 
 	/* TODO: Make sure the file name does not exceed
-	 * the maximum buffer size in the fileNameMsg
-	 * struct. If exceeds, then terminate with an error. */
+	* the maximum buffer size in the fileNameMsg
+	* struct. If exceeds, then terminate with an error. */
 
 	if (fileNameSize > MAX_FILE_NAME_SIZE) {
-		cout << "File Name is too large\n";
+		perror("File Name is too large\n");
 		exit(1);
 	}
 
 	/* TODO: Create an instance of the struct representing the message
-	 * containing the name of the file.
-	 */
+	* containing the name of the file.
+	*/
 	/* TODO: Set the message type FILE_NAME_TRANSFER_TYPE */
 
-	 struct fileNameMsg sendMessageName = { FILE_NAME_TRANSFER_TYPE}; //temorary mtype and size for testing
+	struct fileNameMsg sendMessageName = { FILE_NAME_TRANSFER_TYPE}; //temorary mtype and size for testing
 	/* TODO: Set the file name in the message */
 	//make size of message name dynamic
 	strncpy(sendMessageName.fileName, thefileName, 11);
@@ -200,7 +211,7 @@ int main(int argc, char** argv)
 	init(shmid, msqid, sharedMemPtr);
 
 	/* Send the name of the file */
-        sendFileName(argv[1]);
+  sendFileName(argv[1]);
 
 	/* Send the file */
 	fprintf(stderr, "The number of bytes sent is %lu\n", sendFile(argv[1]));
