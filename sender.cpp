@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <string.h>
 #include "msg.h"    /* For the message struct */
-
+using namespace std;
 /* The size of the shared memory segment */
 #define SHARED_MEMORY_CHUNK_SIZE 1000
 
@@ -86,6 +86,10 @@ unsigned long sendFile(const char* fileName)
 	//compute file size
 	long begin, end;
 
+	// instatntiate message type with SENDER_DATA_TYPE
+	 struct message msg_sender;
+	 msg1.mtype = SENDER_DATA_TYPE;
+
 	/* Read the whole file */
 	while(!feof(fp))
 	{
@@ -107,15 +111,15 @@ unsigned long sendFile(const char* fileName)
 		/* TODO: Send a message to the receiver telling him that the data is ready
  		 * to be read (message of type SENDER_DATA_TYPE).
  		 */
-		 struct message msg1;
-		 msg1.mtype = SENDER_DATA_TYPE;
-		 msgsnd(msqid, &msg1, sizeof(msg1), 0);
+
+		 msgsnd(msqid, &msg1, numBytesSent, 0);
 		/* TODO: Wait until the receiver sends us a message of type RECV_DONE_TYPE telling us
  		 * that he finished saving a chunk of memory.
  		 */
-		while(){
-
-		}
+		  if(msgrcv(msqid,&msg1,numBytesRecv,RECV_DONE_TYPE,0) < 0){
+			  cout <<"error";
+			  exit(1);
+		  }
 	}
 
 
@@ -123,7 +127,7 @@ unsigned long sendFile(const char* fileName)
  	  * Lets tell the receiver that we have nothing more to send. We will do this by
  	  * sending a message of type SENDER_DATA_TYPE with size field set to 0.
 	  */
-
+ 	msgsnd(msqid, &msg1, 0, 0);
 
 	/* Close the file */
 	fclose(fp);
@@ -145,7 +149,7 @@ void sendFileName(const char* fileName)
 	 * struct. If exceeds, then terminate with an error. */
 
 	if (fileNameSize > MAX_FILE_NAME_SIZE) {
-		//cout << "File Name is too large\n";
+		cout << "File Name is too large\n";
 		exit(1);
 	}
 
@@ -153,7 +157,7 @@ void sendFileName(const char* fileName)
 	 * containing the name of the file.
 	 */
 	/* TODO: Set the message type FILE_NAME_TRANSFER_TYPE */
-	 struct fileNameMsg sendMessageName = { FILE_NAME_TRANSFER_TYPE} //temorary mtype and size for testing
+	 struct fileNameMsg sendMessageName = { FILE_NAME_TRANSFER_TYPE}; //temorary mtype and size for testing
 	/* TODO: Set the file name in the message */
 	strncpy(sendMessageName.fileName, fileName, sizeof(sendMessageName.fileName) - 1);
 	/* TODO: Send the message using msgsnd */
