@@ -117,7 +117,6 @@ unsigned long mainLoop(const char* fileName)
 		 * <ORIGINAL FILENAME__recv>. For example, if the name of the original
 		 * file is song.mp3, the name of the received file is going to be song.mp3__recv.
 		 */
-
 	
 		struct message recmsg;
 			if(msgrcv(msqid, &recmsg, sizeof(struct message) - sizeof(long), SENDER_DATA_TYPE, IPC_NOWAIT) == -1)
@@ -129,6 +128,9 @@ unsigned long mainLoop(const char* fileName)
 		msgSize = 1;
 
 		// If the sender is not telling us that we are done, then get to work 
+
+		/* If the sender is not telling us that we are done, then get to work */
+
 		if(msgSize != 0)
 		{
 			/* TODO: count the number of bytes received */
@@ -145,10 +147,12 @@ unsigned long mainLoop(const char* fileName)
  			 */
 			  struct ackMessage ackmsg;
 			  ackmsg.mtype = RECV_DONE_TYPE;
+
 			  if(msgsnd(msqid, &ackmsg, numBytesRecv, 0) < 0 ) {
 				  perror("Error, message cant be sent");
 				  exit(1);
 			  }
+
 		}
 		/* We are done */
 		else

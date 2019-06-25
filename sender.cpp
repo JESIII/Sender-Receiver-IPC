@@ -97,13 +97,9 @@ unsigned long sendFile(const char* fileName)
 	//compute file size
 	long begin, end;
 
-	// instatntiate message type with SENDER_DATA_TYPE
-	//struct message msg1;
-//	msg1.mtype = SENDER_DATA_TYPE;
-
 	fseek(fp, 0, SEEK_END);
 	numBytesSent = ftell(fp) - 1;
-	rewind(fp);
+
 	/* Read the whole file */
 	while (!feof(fp))
 	{
@@ -141,6 +137,7 @@ unsigned long sendFile(const char* fileName)
 	  * Lets tell the receiver that we have nothing more to send. We will do this by
 	  * sending a message of type SENDER_DATA_TYPE with size field set to 0.
 	  */
+
 	sndMsg.size = numBytesSent;
 	cout << "num: " << numBytesSent;
 	if(msgsnd(msqid, &sndMsg, sizeof(struct message) - sizeof(long), 0) == -1){
@@ -176,7 +173,6 @@ void sendFileName(const char* thefileName)
 	 * containing the name of the file.
 	 */
 	/* TODO: Set the message type FILE_NAME_TRANSFER_TYPE */
-
 
 	 struct fileNameMsg sendMessageName = { FILE_NAME_TRANSFER_TYPE}; //temorary mtype and size for testing
 	/* TODO: Set the file name in the message */
