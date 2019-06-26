@@ -184,7 +184,6 @@ void sendFileName(const char* thefileName)
 	* containing the name of the file.
 	*/
 	/* TODO: Set the message type FILE_NAME_TRANSFER_TYPE */
-
 	struct fileNameMsg sendMessageName = { FILE_NAME_TRANSFER_TYPE}; //temorary mtype and size for testing
 	cout << "\n188: address of struct: " << &sendMessageName << endl;
 	/* TODO: Set the file name in the message */
