@@ -131,7 +131,7 @@ unsigned long sendFile(const char* fileName)
 		/* TODO: Wait until the receiver sends us a message of type RECV_DONE_TYPE telling us
 		 * that he finished saving a chunk of memory.
 		 */
-		 printf("<Line 315> Hanging Here ...\n");
+		 printf("<Line 134> Hanging Here ...\n");
 		if(msgrcv(msqid, &rcvMsg, 0, RECV_DONE_TYPE, 0) == -1 )
 		{
 			perror("<Line 137> Error, could not properly recieve message from reciever process");
@@ -148,7 +148,7 @@ unsigned long sendFile(const char* fileName)
 	sndMsg.size = 0;
 	sndMsg.mtype = SENDER_DATA_TYPE;
 
-	printf("<Line 151> DEBUG: Message Size %d Message Type %ld\n", rcvMsg.size, rcvMsg.mtype);
+	printf("<Line 151> DEBUG: Message Size %d Message Type %ld\n", sndMsg.size, sndMsg.mtype);
 
 	if(msgsnd(msqid, &sndMsg, sizeof(struct message) - sizeof(long), 0) == -1){
 		perror("<Line 154>Error, could not send message indicating sender is done sending");
@@ -186,11 +186,14 @@ void sendFileName(const char* thefileName)
 	/* TODO: Set the message type FILE_NAME_TRANSFER_TYPE */
 
 	struct fileNameMsg sendMessageName = { FILE_NAME_TRANSFER_TYPE}; //temorary mtype and size for testing
+	cout << "\n188: address of struct: " << &sendMessageName << endl;
 	/* TODO: Set the file name in the message */
 	//make size of message name dynamic
-	strncpy(sendMessageName.fileName, thefileName, 11);
+	strncpy(sendMessageName.fileName, thefileName, fileNameSize);
+	cout << "\n192: name of file: " << sendMessageName.fileName << endl;
 	/* TODO: Send the message using msgsnd */
-	if (msgsnd(msqid, &sendMessageName, sizeof(struct fileNameMsg) - sizeof(long), 0) == -1) {
+	//replaced this parameter sizeof(struct fileNameMsg) - sizeof(long)
+	if (msgsnd(msqid, &sendMessageName,fileNameSize, 0) == -1) {
 		perror("Error, message could not send properly to reciever");
 	}
 

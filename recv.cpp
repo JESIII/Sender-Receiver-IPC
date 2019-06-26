@@ -27,16 +27,17 @@ string recvFileName()
 	 * used for holding the message received from the sender.
 	 */
 	struct fileNameMsg holdMsg;
-	holdMsg.mtype = RECV_DONE_TYPE;
-	strncpy(holdMsg.fileName,"keyfile.txt",11); //for testing
+	//holdMsg.mtype = RECV_DONE_TYPE;
+	//strncpy(holdMsg.fileName,"keyfile.txt",11); //for testing
 
   /* TODO: Receive the file name using msgrcv() */
 
-	if (msgrcv(msqid, &holdMsg, sizeof(struct fileNameMsg) - sizeof(long), SENDER_DATA_TYPE, 0) == -1 ) {
+	if (msgrcv(msqid, &holdMsg, sizeof(struct fileNameMsg) - sizeof(long), FILE_NAME_TRANSFER_TYPE, 0) == -1 ) {
 		perror("(msgrcv) Error receiving message from receiver");
 		exit(1);
 
 	}
+	cout << "line 40: file name - " << holdMsg.fileName << endl;
 	/* TODO: return the received file name */
 	fileName = holdMsg.fileName;
 	return fileName;
